@@ -1,10 +1,10 @@
 from scapy.all import *
 from scapy.layers.eap import EAPOL, EAP
+from scapy.layers.l2 import Ether
 from eap_constants import *
 import threading
 import time
 import hashlib
-import os
 
 
 class EAPClient:
@@ -60,7 +60,7 @@ class EAPClient:
     def send_eapol_start(self):
         """发送 EAPOL-Start"""
         eapol_start = Ether(dst=self.server_mac, src=self.client_mac, type=EAPOL_TYPE_EAP)
-        eapol_start /= EAPOL(version=EAPOL_VERSION, type=EAPOL_START)
+        eapol_start /= EAPOL(version=EAPOL_VERSION, type=EAPOL_TYPE_EAPOL_START)
         sendp(eapol_start, iface=self.interface, verbose=0)
         print("[Client] 发送 EAPOL-Start")
 
