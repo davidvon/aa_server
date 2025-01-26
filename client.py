@@ -79,5 +79,5 @@ class EAPSupplicant:
 
 # Example usage
 if __name__ == "__main__":
-    client = EAPSupplicant(iface="ens33", server_mac="14:F5:F9:6D:52:E0")
+    client = EAPSupplicant(iface="以太网", server_mac="00:16:96:EC:11:53")
     client.start_authentication()
