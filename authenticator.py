@@ -1,31 +1,7 @@
-from asyncio import timeout
-
 from scapy.all import *
-import time
-
 from scapy.layers.eap import EAP, EAPOL
 from scapy.layers.l2 import Ether
-
-# 定义EAPOL类型
-EAPOL_TYPE_EAP = 0x888e
-
-EAPOL_TYPE_EAP_PACKET = 0
-EAPOL_TYPE_EAPOL_START = 1
-EAPOL_TYPE_EAPOL_LOGOFF = 2
-EAPOL_TYPE_EAPOL_KEY = 3
-
-
-# 定义EAP代码
-EAP_CODE_REQUEST = 1
-EAP_CODE_RESPONSE = 2
-EAP_CODE_SUCCESS = 3
-EAP_CODE_FAILURE = 4
-
-# 定义EAP类型
-EAP_TYPE_IDENTITY = 1
-EAP_TYPE_MD5_CHALLENGE = 4
-
-ONLINE_CLIENTS = set()
+from eap_constants import *
 
 
 class EAPAuthenticator:
@@ -35,34 +11,24 @@ class EAPAuthenticator:
 
     def send_eap_request_identity(self, _packet):
         print("[Server <-- Client]: Received EAPOL-Start")
-        eap_request = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / \
-                      EAPOL(version=1, type=0) / \
-                      EAP(code=EAP_CODE_REQUEST, id=1, type=EAP_TYPE_IDENTITY)
+        eap_request = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / EAPOL(version=1, type=0) / EAP(code=EAP_CODE_REQUEST, id=1, type=EAP_TYPE_IDENTITY)
         sendp(eap_request, iface=self.iface, verbose=False)
         print("[Server --> Client]: Sent EAP-Request/Identity")
 
     def send_eap_request_md5_challenge(self, _packet):
         print("[Server <-- Client]: Received EAP-Response/Identity")
-        eap_request = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / \
-                      EAPOL(version=1, type=0) / \
-                      EAP(code=EAP_CODE_REQUEST, id=2, type=EAP_TYPE_MD5_CHALLENGE) / \
-                      "md5_challenge"
+        eap_request = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / EAPOL(version=1, type=0) / EAP(code=EAP_CODE_REQUEST, id=2, type=EAP_TYPE_MD5_CHALLENGE) / "md5_challenge"
         sendp(eap_request, iface=self.iface, verbose=False)
         print("[Server --> Client]: Sent EAP-Request/MD5-Challenge")
 
     def send_eap_success(self, _packet):
         print("[Server <-- Client]: Received EAP-Response/MD5-Challenge")
-        eap_success = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / \
-                      EAPOL(version=1, type=0) / \
-                      EAP(code=EAP_CODE_SUCCESS, id=2)
+        eap_success = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / EAPOL(version=1, type=0) / EAP(code=EAP_CODE_SUCCESS, id=2)
         sendp(eap_success, iface=self.iface, verbose=False)
-        ONLINE_CLIENTS.add(_packet.src)
         print("[Server --> Client]: Sent EAP-Success")
 
     def send_eap_failure(self, _packet):
-        eap_failure = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / \
-                      EAPOL(version=1, type=0) / \
-                      EAP(code=EAP_CODE_FAILURE, id=2)
+        eap_failure = Ether(dst=_packet.src, src=self.server_mac, type=EAPOL_TYPE_EAP) / EAPOL(version=1, type=0) / EAP(code=EAP_CODE_FAILURE, id=2)
         sendp(eap_failure, iface=self.iface, verbose=False)
         print("[Server --> Client]: Sent EAP-Failure")
 
@@ -88,9 +54,7 @@ class EAPAuthenticator:
         self.send_eap_success(_packet)
 
     def handle_handshake_request(self, dst_mac):
-        eap_success = Ether(dst=dst_mac, src=self.server_mac, type=EAPOL_TYPE_EAP) / \
-                      EAPOL(version=1, type=0) / \
-                      EAP(code=EAP_CODE_SUCCESS, id=2)
+        eap_success = Ether(dst=dst_mac, src=self.server_mac, type=EAPOL_TYPE_EAP) / EAPOL(version=1, type=0) / EAP(code=EAP_CODE_SUCCESS, id=2)
         sendp(eap_success, iface=self.iface, verbose=False)
         print("[Server --> Client]: Sent Handshake-Request")
 

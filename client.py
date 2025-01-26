@@ -1,21 +1,9 @@
 from scapy.all import *
-import time
+from eap_constants import *
 
 from scapy.layers.eap import EAP, EAPOL
 from scapy.layers.l2 import Ether
 
-# 定义EAPOL类型
-EAPOL_TYPE_EAP = 0x888e
-
-# 定义EAP代码
-EAP_CODE_REQUEST = 1
-EAP_CODE_RESPONSE = 2
-EAP_CODE_SUCCESS = 3
-EAP_CODE_FAILURE = 4
-
-# 定义EAP类型
-EAP_TYPE_IDENTITY = 1
-EAP_TYPE_MD5_CHALLENGE = 4
 
 class EAPSupplicant:
     def __init__(self, iface, server_mac):
@@ -79,5 +67,5 @@ class EAPSupplicant:
 
 # Example usage
 if __name__ == "__main__":
-    client = EAPSupplicant(iface="以太网", server_mac="00:16:96:EC:11:53")
+    client = EAPSupplicant(iface="ens33", server_mac="14:F5:F9:6D:52:E0")
     client.start_authentication()
