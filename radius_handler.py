@@ -1,8 +1,8 @@
-# radius_handler.py
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
 from pyrad.packet import AccessRequest
 import hashlib
+from eap_constants import MODE_RELAY
 
 
 class RadiusHandler:
@@ -24,7 +24,8 @@ class RadiusHandler:
         self._add_message_auth(req)
         return req
 
-    def _add_message_auth(self, packet):
+    @staticmethod
+    def _add_message_auth(packet):
         """添加Message-Authenticator属性"""
         packet["Message-Authenticator"] = b'\x00' * 16
         raw_packet = packet.RequestPacket()

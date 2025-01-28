@@ -25,10 +25,10 @@ class EAPAuthenticator:
 
         # 注册处理方法
         self.handlers = {
-            EAP_IDENTITY: self._handle_identity,
-            EAP_MD5: self._handle_md5,
-            EAP_TLS: self._handle_tls,
-            EAP_PEAP: self._handle_peap
+            EAP_IDENTITY: self._handle_identity_request,
+            EAP_MD5: self._handle_md5_challenge_request,
+            EAP_TLS: self._handle_tls_request,
+            EAP_PEAP: self._handle_peap_request
         }
 
     def start(self):
@@ -62,7 +62,7 @@ class EAPAuthenticator:
         if EAPOL in pkt and pkt[EAPOL].type == EAPOL_TYPE_EAPOL_START:
             self._handle_eapol_start(pkt)
         elif EAP in pkt and pkt[EAP].code == EAP_RESPONSE:
-            Thread(target=self._process_eap_response, args=(pkt,)).start()
+            self._process_eap_response(pkt)
 
     def _handle_eapol_start(self, pkt):
         """处理EAPOL-Start"""
@@ -91,7 +91,6 @@ class EAPAuthenticator:
         """中继模式处理"""
         with self.session_lock:
             session = self.sessions.get(client_mac)
-
         if not session:
             return
 
@@ -99,7 +98,6 @@ class EAPAuthenticator:
             username=session.get('username', 'unknown'),
             eap_data=eap.build()
         )
-
         if resp := self.radius.process(req):
             self._handle_radius_response(client_mac, resp)
 
@@ -113,7 +111,7 @@ class EAPAuthenticator:
             self._send_eap_result(EAP_FAILURE, client_mac)
 
     # 以下是终结模式处理方法
-    def _handle_identity(self, client_mac, eap):
+    def _handle_identity_request(self, client_mac, eap):
         """处理身份认证"""
         username = eap.load.decode().strip('\x00')
         with self.session_lock:
@@ -128,7 +126,7 @@ class EAPAuthenticator:
         challenge_pkt = bytes([16]) + challenge
         self._send_eap_request(EAP_MD5, client_mac, challenge_pkt)
 
-    def _handle_md5(self, client_mac, eap):
+    def _handle_md5_challenge_request(self, client_mac, eap):
         """验证MD5响应"""
         with self.session_lock:
             session = self.sessions.get(client_mac)
@@ -162,10 +160,10 @@ class EAPAuthenticator:
         sendp(pkt, iface=self.interface, verbose=0)
 
     # TLS/PEAP处理占位符（实现略）
-    def _handle_tls(self, *args):
+    def _handle_tls_request(self, *args):
         pass
 
-    def _handle_peap(self, *args):
+    def _handle_peap_request(self, *args):
         pass
 
 

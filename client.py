@@ -18,7 +18,7 @@ class EAPClient:
         self.eap_id = 0  # EAP 标识符计数器
         self.handlers = {
             EAP_IDENTITY: self.handle_identity_request,
-            EAP_MD5: self.handle_md5_challenge,
+            EAP_MD5: self.handle_md5_challenge_request,
             EAP_TLS: self.handle_tls_request,
             EAP_PEAP: self.handle_peap_request
         }
@@ -42,8 +42,7 @@ class EAPClient:
         """接收数据包循环"""
         sniff_filter = f"ether proto {EAPOL_TYPE_EAP} and dst host {self.client_mac}"
         while self.running:
-            sniff(iface=self.interface, prn=self._process_packet,
-                  filter=sniff_filter, store=0, timeout=1)
+            sniff(iface=self.interface, prn=self._process_packet, filter=sniff_filter, store=0, timeout=1)
 
     def _process_packet(self, pkt):
         """处理接收到的数据包"""
@@ -81,7 +80,7 @@ class EAPClient:
         print("[Client] 收到 EAP-Request/Identity")
         self.send_eap_response(EAP_IDENTITY, eap.id, self.username.encode())
 
-    def handle_md5_challenge(self, eap):
+    def handle_md5_challenge_request(self, eap):
         """处理 EAP-Request/MD5-Challenge"""
         print("[Client] 收到 EAP-Request/MD5-Challenge")
         challenge = eap.load[1:17]  # 提取挑战值
