@@ -30,6 +30,7 @@ class EAPAuthenticator:
             EAP_TLS: self._handle_tls_request,
             EAP_PEAP: self._handle_peap_request
         }
+        print('mac:', self.mac)
 
     def start(self):
         """启动认证服务"""
@@ -183,7 +184,7 @@ if __name__ == '__main__':
         'nas_ip': '192.168.1.100',
         'mode': MODE_TERMINATE
     }
-    authenticator = EAPAuthenticator("以太网", config_relay)
+    authenticator = EAPAuthenticator("en0", config_relay)
     authenticator.start()
 
     # 保持主线程运行

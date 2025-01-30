@@ -120,8 +120,8 @@ if __name__ == "__main__":
     python client.py --interface eth0 --server-mac 00:11:22:33:44:55 --username test_user --password test_password
     """
     client = EAPClient(
-        interface="以太网",
-        server_mac="14:F5:F9:6D:52:E0",
+        interface="en0",
+        server_mac="3c:07:54:77:fe:b9",
         username="operator",
         password="testpass"
     )
