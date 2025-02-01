@@ -174,10 +174,10 @@ class EAPAuthenticator:
         print('[Server --> Client[%d]]: ACCESS %s' % (eap_id, 'SUCCESS' if code == EAP_SUCCESS else 'FAILURE'))
 
     # TLS/PEAP处理占位符（实现略）
-    def _handle_tls_request(self, *args):
+    def _handle_tls_request(self, client_mac, eap):
         pass
 
-    def _handle_peap_request(self, *args):
+    def _handle_peap_request(self, client_mac, eap):
         pass
 
 
