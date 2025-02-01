@@ -76,18 +76,16 @@ class EAPAuthenticator:
     def _handle_eapol_start(self, pkt):
         """处理EAPOL-Start"""
         dst_mac = pkt.src
+        if dst_mac in self.sessions.keys() and self.sessions[dst_mac]['state'] >= STATE_STEP_REQ_START:
+            print('[Server <-- Client(%s)]: state:%s exists.' % (self.sessions[dst_mac]['id'], self.sessions[dst_mac].get('state')))
+            return
 
         with self.session_lock:
-            session = self.sessions.get(dst_mac)
-            if session and session.get('id') is not None:
-                print('client:[%d] exists in session' % session['id'])
-                return
-
             self.sessions[dst_mac] = {
                 'id': os.urandom(1)[0],
                 'ts': f"{time.time():.0f}",
                 'username': None,
-                'state': STATE_STEP_REQ_IDENTITY
+                'state': STATE_STEP_REQ_START
             }
         self._send_eap_request(EAP_IDENTITY, dst_mac)
 
@@ -128,39 +126,34 @@ class EAPAuthenticator:
             self._send_eap_result(EAP_FAILURE, client_mac)
 
     # 以下是终结模式处理方法
-    def _send_md5_challenge(self, client_mac, eap):
+    def _send_md5_challenge(self, client_mac, challenge):
         """发送MD5挑战"""
-        if self.sessions[client_mac].get('challenge'):
-            challenge = self.sessions[client_mac]['challenge']
-        else:
-            challenge = os.urandom(16)
-            with self.session_lock:
-                self.sessions[client_mac]['state'] = STATE_STEP_REQ_MD5_CHALLENGE
-                self.sessions[client_mac]['challenge'] = challenge
         challenge_pkt = bytes([16]) + challenge
         self._send_eap_request(EAP_MD5, client_mac, challenge_pkt)
 
     def _handle_identity_request(self, client_mac, eap):
         """处理身份认证"""
-        username = str(eap.identity, encoding="utf-8")
+        if self.sessions[client_mac]['state'] >= STATE_STEP_ACK_IDENTITY:
+            print('[Server <-- Client(%s)]: state:%s exists.' % (self.sessions[client_mac]['id'], self.sessions[client_mac].get('state')))
+            return
+        challenge = os.urandom(16)
         with self.session_lock:
-            self.sessions[client_mac]['username'] = username
+            self.sessions[client_mac]['challenge'] = challenge
+            self.sessions[client_mac]['username'] = str(eap.identity, encoding="utf-8")
             self.sessions[client_mac]['state'] = STATE_STEP_ACK_IDENTITY
-        self._send_md5_challenge(client_mac, eap)
+        self._send_md5_challenge(client_mac, challenge)
 
     def _handle_md5_challenge_request(self, client_mac, eap):
         """验证MD5"""
+        if self.sessions[client_mac]['state'] >= STATE_STEP_ACK_MD5_CHALLENGE:
+            print('[Server <-- Client(%s)]: state:%s exists.' % (self.sessions[client_mac]['id'], self.sessions[client_mac].get('state')))
+            return
         with self.session_lock:
             session = self.sessions.get(client_mac)
             self.sessions[client_mac]['state'] = STATE_STEP_ACK_MD5_CHALLENGE
-        if not session or 'challenge' not in session:
-            return
-        print('[Server <-- Client]: eap:id[%s], challenge[%s]' % (eap.id, session['challenge']))
+        print('[Server <-- Client(%s)]: challenge[%s]' % (eap.id, session['challenge']))
         expected = hashlib.md5(bytes([eap.id]) + b"secret" + session['challenge']).digest()
-        if eap.value == expected:
-            self._send_eap_result(EAP_SUCCESS, client_mac)
-        else:
-            self._send_eap_result(EAP_FAILURE, client_mac)
+        self._send_eap_result(EAP_SUCCESS if eap.value == expected else EAP_FAILURE, client_mac)
 
     def _send_eap_request(self, eap_type, dst_mac, data=None):
         """发送EAP请求"""
@@ -170,7 +163,7 @@ class EAPAuthenticator:
             eap /= Raw(load=data)
         pkt = Ether(dst=dst_mac, src=self.mac) / EAPOL(version=EAPOL_VERSION) / eap
         sendp(pkt, iface=self.interface, verbose=0)
-        print('[Server --> Client][%d] ACCESS CHALLENGE' % eap_id)
+        print('[Server --> Client[%d]]: ACCESS CHALLENGE' % eap_id)
 
     def _send_eap_result(self, code, dst_mac):
         eap_id = self.sessions[dst_mac]['id']
@@ -178,7 +171,7 @@ class EAPAuthenticator:
         pkt = Ether(dst=dst_mac, src=self.mac) / EAPOL(version=EAPOL_VERSION)
         pkt /= EAP(code=code, id=os.urandom(1)[0])
         sendp(pkt, iface=self.interface, verbose=0)
-        print('[Server --> Client][%d] ACCESS %s' % (eap_id, 'SUCCESS' if code == EAP_SUCCESS else 'FAILURE'))
+        print('[Server --> Client[%d]]: ACCESS %s' % (eap_id, 'SUCCESS' if code == EAP_SUCCESS else 'FAILURE'))
 
     # TLS/PEAP处理占位符（实现略）
     def _handle_tls_request(self, *args):
