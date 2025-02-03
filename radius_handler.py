@@ -8,10 +8,9 @@ from eap_constants import MODE_RELAY
 class RadiusHandler:
     def __init__(self, server, secret, nas_ip, mode=MODE_RELAY):
         self.mode = mode
-        self.client = Client(server=server, secret=secret.encode(),
-                             dict=Dictionary("dictionary"))
         self.nas_ip = nas_ip
         self.nas_id = "PyAuthenticator"
+        self.client = Client(server=server, secret=secret.encode(), dict=Dictionary("dictionary"))
 
     def send_request(self, username, eap_data=None):
         """创建基础RADIUS请求包"""
