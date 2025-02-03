@@ -11,12 +11,8 @@ class EAPAuthenticator:
     def __init__(self, interface, radius_config):
         self.interface = interface
         self.mac = get_if_hwaddr(interface)
-        self.radius = RadiusHandler(
-            server=radius_config['server'],
-            secret=radius_config['secret'],
-            nas_ip=radius_config['nas_ip'],
-            mode=radius_config.get('mode', MODE_RELAY)
-        )
+        if radius_config.get('mode') == MODE_RELAY:
+            self.radius = RadiusHandler(radius_config)
         self.sessions = {}
         self.session_lock = Lock()
         self.workers = []
@@ -89,37 +85,28 @@ class EAPAuthenticator:
         """处理EAP响应"""
         client_mac = pkt.src
         eap = pkt[EAP]
-        if self.radius.mode == MODE_RELAY:
+        if self.radius:
             self._relay_to_radius(client_mac, eap)
-        else:
-            handler = self.handlers.get(eap.type)
-            if handler:
-                handler(client_mac, eap)
+        elif self.handlers.get(eap.type):
+            self.handlers[eap.type](client_mac, eap)
 
     def _relay_to_radius(self, client_mac, eap):
         """中继模式处理"""
         print('[Server <-- Client(%s)][Relay]: Received EAP-Response/Identity' % eap.id)
-
-        with self.session_lock:
-            session = self.sessions.get(client_mac)
-        if not session:
-            return
-
-        username = session.get('username') or 'unknown'
-        eap_data = eap.build()
-        resp = self.radius.send_request(
-            username=username,
-            eap_data=eap_data
-        )
+        if eap.type == EAP_IDENTITY:
+            resp = self.radius.send_request()
+        else:
+            resp = self.radius.send_request(eap_data=eap.build())
         self._handle_radius_response(client_mac, resp)
 
     def _handle_radius_response(self, client_mac, resp):
         """处理RADIUS响应"""
-        if resp is None or resp.code == ACCESS_ACCEPT:
+        if resp.code == ACCESS_ACCEPT:
             self._send_eap_result(EAP_SUCCESS, client_mac)
         elif resp.code == ACCESS_CHALLENGE:
             self._send_eap_request(EAP_MD5, client_mac, resp["EAP-Message"][0])
         else:
+            print('[Server <-- RadiusService] Response Access:', resp.code)
             self._send_eap_result(EAP_FAILURE, client_mac)
 
     # 以下是终结模式处理方法
@@ -188,16 +175,15 @@ class EAPAuthenticator:
 if __name__ == '__main__':
     config_relay = {
         'server': '192.168.253.141',
+        'auth_port': 1812,
+        'username': 'operator',
+        'password': 'testpass',
         'secret': 'testing123',
-        'nas_ip': '127.0.1.1',
         'mode': MODE_RELAY
     }
 
     # 终结模式配置
     config_terminate = {
-        'server': '192.168.253.141',  # 终结模式不需要真实服务器
-        'secret': 'testing123',
-        'nas_ip': '192.168.1.100',
         'mode': MODE_TERMINATE
     }
     authenticator = EAPAuthenticator("ens33", config_relay)
