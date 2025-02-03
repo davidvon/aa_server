@@ -28,3 +28,5 @@ ATTRIBUTE       Termination-Action      29      integer
 ATTRIBUTE       Called-Station-Id       30      string
 ATTRIBUTE       Calling-Station-Id      31      string
 ATTRIBUTE       NAS-Identifier          32      string
+ATTRIBUTE       EAP-Message             79      octets
+ATTRIBUTE       Message-Authenticator   80      octets

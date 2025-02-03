@@ -93,10 +93,7 @@ class EAPAuthenticator:
     def _relay_to_radius(self, client_mac, eap):
         """中继模式处理"""
         print('[Server <-- Client(%s)][Relay]: Received EAP-Response/Identity' % eap.id)
-        if eap.type == EAP_IDENTITY:
-            resp = self.radius.send_request()
-        else:
-            resp = self.radius.send_request(eap_data=eap.build())
+        resp = self.radius.send_relay_request(eap_data=eap.build())
         self._handle_radius_response(client_mac, resp)
 
     def _handle_radius_response(self, client_mac, resp):
@@ -174,7 +171,7 @@ class EAPAuthenticator:
 
 if __name__ == '__main__':
     config_relay = {
-        'server': '127.0.0.1',
+        'server': '192.168.253.141',
         'auth_port': 1812,
         'username': 'operator',
         'password': 'testpass',

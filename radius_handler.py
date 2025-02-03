@@ -15,17 +15,17 @@ class RadiusHandler:
         self.mode = config['mode']
         self.secret = config['secret']
         self.dict_file = "dictionary"
+        self.nas_ip = "127.0.1.1"
         self.timeout = 5
         self.client = Client(server=self.server, authport=self.auth_port, secret=self.secret.encode(),
                              dict=Dictionary(self.dict_file), timeout=self.timeout)
 
-    def send_request(self, eap_data=None):
+    def send_relay_request(self, eap_data=None):
         """创建基础RADIUS请求包"""
-        request = self.client.CreateAuthPacket(code=AccessRequest, User_Name=self.username)
+        request = self.client.CreateAuthPacket(code=AccessRequest, User_Name=self.username, NAS_IP_Address = self.nas_ip)
         request['User-Password'] =request.PwCrypt(self.password)
-        if eap_data:
-            request['EAP-Message'] = eap_data
-        # self._add_message_auth(request)
+        request['EAP-Message'] = eap_data
+        self._add_message_auth(request)
         resp = self._send_packet(request)
         return resp
 
