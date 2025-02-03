@@ -1,5 +1,3 @@
-import time
-
 from scapy.all import *
 from scapy.layers.eap import EAP, EAPOL
 from scapy.layers.l2 import Ether
