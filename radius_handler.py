@@ -21,9 +21,8 @@ class RadiusHandler:
 
     def send_request(self, eap_data=None):
         """创建基础RADIUS请求包"""
-        request = self.client.CreateAuthPacket(code=AccessRequest)
-        request['User-Name'] =  self.username
-        request['User-Password'] = request.PwCrypt(self.password)
+        request = self.client.CreateAuthPacket(code=AccessRequest, User_Name=self.username)
+        request['User-Password'] =request.PwCrypt(self.password)
         if eap_data:
             request['EAP-Message'] = eap_data
         # self._add_message_auth(request)

@@ -174,7 +174,7 @@ class EAPAuthenticator:
 
 if __name__ == '__main__':
     config_relay = {
-        'server': '192.168.253.141',
+        'server': '127.0.0.1',
         'auth_port': 1812,
         'username': 'operator',
         'password': 'testpass',
