@@ -31,18 +31,10 @@ class RadiusHandler:
 
     def _add_message_auth(self, request):
         """添加Message-Authenticator属性"""
-        # request["Message-Authenticator"] = b'\x00' * 16
-        # raw_packet = request.RequestPacket()
-        # request.authenticator = hashlib.md5(raw_packet + request.secret).digest()
-        # raw_packet2 = request.RequestPacket()
-        # hmac_md5 = hmac.new(self.secret.encode(), raw_packet2, hashlib.md5).digest()
-        # request["Message-Authenticator"] = hmac_md5
-
         request["Message-Authenticator"] = b'\x00' * 16
         raw_packet = request.RequestPacket()
         authenticator = hashlib.md5(raw_packet + request.secret).digest()
         request["Message-Authenticator"] = authenticator
-
 
     def _send_packet(self, request):
         """处理RADIUS请求"""
