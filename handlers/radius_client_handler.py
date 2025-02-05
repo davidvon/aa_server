@@ -6,7 +6,7 @@ from pyrad.packet import AccessRequest, AccessAccept
 import hashlib
 
 
-class RadiusHandler:
+class RadiusClientHandler:
     def __init__(self, config):
         self.server = config['server']
         self.auth_port = 1812

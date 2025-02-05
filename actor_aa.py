@@ -162,7 +162,7 @@ class RadiusServer(server.Server):
             print('Error:%s' % e)
 
     def start(self):
-        print("Starting RADIUS server...")
+        print("Starting AA(RADIUS) server...")
         if platform.system().lower() == 'windows':
             radius_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # udp协议
             radius_server.bind(('', RADIUS_DB['auth_port']))

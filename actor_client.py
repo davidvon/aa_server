@@ -5,7 +5,7 @@ from scapy.layers.eap import EAP, EAPOL
 from scapy.layers.l2 import Ether, ARP
 
 
-class EAPSupplicant:
+class Client:
     def __init__(self, iface, server_mac):
         self.iface = iface
         self.server_mac = server_mac
@@ -70,5 +70,5 @@ class EAPSupplicant:
 
 # Example usage
 if __name__ == "__main__":
-    client = EAPSupplicant(iface="ens33", server_mac="00:16:96:ec:11:53")
+    client = Client(iface="ens33", server_mac="00:16:96:ec:11:53")
     client.start_authentication()

@@ -4,16 +4,16 @@ from scapy.layers.l2 import Ether
 from threading import Thread, Lock
 from queue import Queue
 from constants import *
-from handlers.radius_handler import RadiusHandler
+from handlers.radius_client_handler import RadiusClientHandler
 
 
-class EAPAuthenticator:
+class NasService:
     def __init__(self, interface, radius_config):
         self.interface = interface
         self.mac = get_if_hwaddr(interface)
         self.radius_mode = radius_config.get('mode')
         if self.radius_mode == MODE_RELAY:
-            self.radius = RadiusHandler(radius_config)
+            self.radius = RadiusClientHandler(radius_config)
         self.sessions = {}
         self.session_lock = Lock()
         self.workers = []
@@ -39,7 +39,7 @@ class EAPAuthenticator:
             worker = Thread(target=self._process_worker)
             worker.start()
             self.workers.append(worker)
-        print(f"Authenticator started on {self.interface}")
+        print(f"NAS-Service starting on {self.interface}")
 
     def _sniff_loop(self):
         """抓包循环"""
@@ -189,7 +189,7 @@ if __name__ == '__main__':
         'secret': 'testing123',
         'mode': MODE_TERMINATE
     }
-    authenticator = EAPAuthenticator("ens33", config_terminate)
+    authenticator = NasService("ens33", config_terminate)
     authenticator.start()
 
     # 保持主线程运行
