@@ -11,7 +11,7 @@ CHALLENGE = "test2"
 
 class RadiusServer(pyrad.host.Host):
     def __init__(self):
-        radius_dict = pyrad.dictionary.Dictionary("dictionary.rfc2865")  # 从freeradius中搞一个通用的字典使用
+        radius_dict = pyrad.dictionary.Dictionary("handlers/dictionary.rfc2865")  # 从freeradius中搞一个通用的字典使用
         pyrad.host.Host.__init__(self, dict=radius_dict)
 
     @staticmethod

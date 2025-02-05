@@ -14,8 +14,8 @@ class RadiusHandler:
         self.password = config['password']
         self.mode = config['mode']
         self.secret = config['secret']
-        self.dict_file = "../dictionary"
-        self.nas_ip = "127.0.1.1"
+        self.dict_file = "handlers/dictionary"
+        self.nas_ip = "127.0.0.1"
         self.timeout = 5
         self.client = Client(server=self.server, authport=self.auth_port, secret=self.secret.encode(),
                              dict=Dictionary(self.dict_file), timeout=self.timeout)

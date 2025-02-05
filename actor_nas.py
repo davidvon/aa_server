@@ -11,7 +11,8 @@ class EAPAuthenticator:
     def __init__(self, interface, radius_config):
         self.interface = interface
         self.mac = get_if_hwaddr(interface)
-        if radius_config.get('mode') == MODE_RELAY:
+        self.radius_mode = radius_config.get('mode')
+        if self.radius_mode == MODE_RELAY:
             self.radius = RadiusHandler(radius_config)
         self.sessions = {}
         self.session_lock = Lock()
@@ -85,7 +86,7 @@ class EAPAuthenticator:
         """处理EAP响应"""
         client_mac = pkt.src
         eap = pkt[EAP]
-        if self.radius:
+        if self.radius_mode == MODE_RELAY:
             self._relay_to_radius(client_mac, eap)
         elif self.handlers.get(eap.type):
             self.handlers[eap.type](client_mac, eap)
@@ -171,7 +172,7 @@ class EAPAuthenticator:
 
 if __name__ == '__main__':
     config_relay = {
-        'server': '192.168.253.141',
+        'server': '127.0.0.1',
         'auth_port': 1812,
         'username': 'operator',
         'password': 'testpass',
@@ -181,9 +182,14 @@ if __name__ == '__main__':
 
     # 终结模式配置
     config_terminate = {
+        'server': '127.0.0.1',
+        'auth_port': 1812,
+        'username': 'operator',
+        'password': 'testpass',
+        'secret': 'testing123',
         'mode': MODE_TERMINATE
     }
-    authenticator = EAPAuthenticator("ens33", config_relay)
+    authenticator = EAPAuthenticator("ens33", config_terminate)
     authenticator.start()
 
     # 保持主线程运行
