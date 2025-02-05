@@ -162,7 +162,7 @@ class RadiusServer(server.Server):
             print('Error:%s' % e)
 
     def start(self):
-        print("Starting AA(RADIUS) server...")
+        print("Starting AA(Radius) server...")
         if platform.system().lower() == 'windows':
             radius_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # udp协议
             radius_server.bind(('', RADIUS_DB['auth_port']))
@@ -172,12 +172,12 @@ class RadiusServer(server.Server):
                     self._handle_packet(radius_server, data, client_addr)
             except KeyboardInterrupt:
                 self.running = False
-                print("Shutting down RADIUS server...")
+                print("Shutting down AA(Radius) server...")
         else:
             try:
                 server.Run()
             except KeyboardInterrupt:
-                print("Shutting down RADIUS server...")
+                print("Shutting down AA(Radius) server...")
 
 
 if __name__ == '__main__':
