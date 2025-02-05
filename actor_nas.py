@@ -3,8 +3,8 @@ from scapy.layers.eap import EAP, EAPOL
 from scapy.layers.l2 import Ether
 from threading import Thread, Lock
 from queue import Queue
-from eap_constants import *
-from radius_handler import RadiusHandler
+from constants import *
+from handlers.radius_handler import RadiusHandler
 
 
 class EAPAuthenticator:

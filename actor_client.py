@@ -1,5 +1,5 @@
 from scapy.all import *
-from eap_constants import *
+from constants import *
 
 from scapy.layers.eap import EAP, EAPOL
 from scapy.layers.l2 import Ether, ARP
