@@ -80,10 +80,8 @@ class NasService:
     def _handle_eapol_start(self, pkt):
         """处理EAPOL-Start"""
         client_mac = pkt.src
-        # if client_mac in self.sessions.keys() and self.sessions[client_mac]['state'] >= STATE_STEP_REQ_START:
-            # print('[Server <-- Client(%s)][%s]: cache to clear.' % (client_mac, self.sessions[client_mac]['id']))
         if client_mac in self.sessions.keys() and self.sessions[client_mac]['state'] == STATE_STEP_REQ_START:
-            print('[Server <-- Client(%s)]: Received EAPOL-Start, discard...' % client_mac)
+            # print('[Server <-- Client(%s)]: Received EAPOL-Start, discard...' % client_mac)
             return
         print('[Server <-- Client(%s)]: Received EAPOL-Start' % client_mac)
         with self.session_lock:
