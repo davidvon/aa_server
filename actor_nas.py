@@ -121,6 +121,7 @@ class NasService:
         username = self._get_user(str(eap.identity))
         if not username:
             self._send_eap_result(EAP_FAILURE, client_mac)
+            print('[Server --> Client(%s)][%s]: Sent FAILURE, identity[%s] check failure.' % (client_mac, self.sessions[client_mac]['id'], str(eap.identity)))
             return
         with self.session_lock:
             self.sessions[client_mac]['challenge'] = challenge
@@ -161,7 +162,7 @@ class NasService:
 
     def _send_eap_request(self, eap_type, dst_mac, data=None):
         """发送EAP请求"""
-        self.sessions[dst_mac]['id'] = self.sessions[dst_mac]['id'] + 1
+        self.sessions[dst_mac]['id'] += 1
         eap = EAP(code=EAP_REQUEST, id=self.sessions[dst_mac]['id'], type=eap_type)
         if data:
             eap /= Raw(load=data)
@@ -202,7 +203,7 @@ if __name__ == '__main__':
         'username': 'operator',
         'users': {
             'operator':'testpass',
-            '0252000621':'ZTE123456'
+            '0252000621':'ZTE12345'
         },
         'mode': MODE_TERMINATE
     }
