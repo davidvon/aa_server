@@ -80,11 +80,12 @@ class NasService:
     def _handle_eapol_start(self, pkt):
         """处理EAPOL-Start"""
         client_mac = pkt.src
-        print('[Server <-- Client(%s)]: Received EAPOL-Start' % client_mac)
         # if client_mac in self.sessions.keys() and self.sessions[client_mac]['state'] >= STATE_STEP_REQ_START:
             # print('[Server <-- Client(%s)][%s]: cache to clear.' % (client_mac, self.sessions[client_mac]['id']))
         if client_mac in self.sessions.keys() and self.sessions[client_mac]['state'] == STATE_STEP_REQ_START:
+            print('[Server <-- Client(%s)]: Received EAPOL-Start, discard...' % client_mac)
             return
+        print('[Server <-- Client(%s)]: Received EAPOL-Start' % client_mac)
         with self.session_lock:
             self.sessions[client_mac] = {
                 'id': 0,
@@ -115,7 +116,7 @@ class NasService:
     def _handle_response_identity(self, client_mac, eap):
         """处理身份认证"""
         if self.sessions[client_mac]['state'] >= STATE_STEP_ACK_IDENTITY:
-            # print('[Server <-- Client(%s)][%s]: Received EAP-Response/Identity, state:%s exists, discard!' % (client_mac, eap.id, self.sessions[client_mac].get('state')))
+            # print('[Server <-- Client(%s)][%s]: Received EAP-Response/Identity, state:%s exists, discard...' % (client_mac, eap.id, self.sessions[client_mac].get('state')))
             return
         print('[Server <-- Client(%s)][%s]: Received EAP-Response/Identity' % (client_mac, eap.id))
         challenge = os.urandom(16)
@@ -138,7 +139,7 @@ class NasService:
         password = self.users[self.sessions[client_mac]['username']]
         state = self.sessions[client_mac]['state']
         if state >= STATE_STEP_ACK_MD5_CHALLENGE:
-            # print('[Server <-- Client(%s)][%s]: Received EAP-Response/MD5-Challenge, state:%s exists, discard!' % (client_mac, eap.id, state))
+            # print('[Server <-- Client(%s)][%s]: Received EAP-Response/MD5-Challenge, state:%s exists, discard...' % (client_mac, eap.id, state))
             return
         print('[Server <-- Client(%s)][%s]: Received EAP-Response/MD5-Challenge' % (client_mac, eap.id))
         with self.session_lock:
