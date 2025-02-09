@@ -8,12 +8,13 @@ from handlers.radius_client_handler import RadiusClientHandler
 
 
 class NasService:
-    def __init__(self, interface, radius_config):
+    def __init__(self, interface, config):
         self.interface = interface
         self.mac = get_if_hwaddr(interface)
-        self.radius_mode = radius_config.get('mode')
+        self.radius_mode = config.get('mode')
         if self.radius_mode == MODE_RELAY:
-            self.radius = RadiusClientHandler(radius_config)
+            self.radius = RadiusClientHandler(config)
+        self.users = config.get('users')
         self.sessions = {}
         self.session_lock = Lock()
         self.workers = []
@@ -22,10 +23,10 @@ class NasService:
 
         # 注册处理方法
         self.handlers = {
-            EAP_IDENTITY: self._handle_identity_request,
-            EAP_MD5: self._handle_md5_challenge_request,
-            EAP_TLS: self._handle_tls_request,
-            EAP_PEAP: self._handle_peap_request
+            EAP_IDENTITY: self._handle_response_identity,
+            EAP_MD5: self._handle_response_md5_challenge,
+            EAP_TLS: self._handle_response_tls,
+            EAP_PEAP: self._handle_response_peap
         }
         print('mac:', self.mac)
 
@@ -65,118 +66,133 @@ class NasService:
         if EAPOL in pkt and pkt[EAPOL].type == EAPOL_TYPE_EAPOL_START:
             self._handle_eapol_start(pkt)
         elif EAP in pkt and pkt[EAP].code == EAP_RESPONSE:
-            self._process_eap_response(pkt)
+            self._handle_eap_response(pkt)
 
-    def _handle_eapol_start(self, pkt):
-        """处理EAPOL-Start"""
-        print('[Server <-- Client]: Received EAPOL-Start')
-        dst_mac = pkt.src
-        if dst_mac in self.sessions.keys() and self.sessions[dst_mac]['state'] >= STATE_STEP_REQ_START:
-            print('[Server <-- Client(%s)]: cache to clear.' % self.sessions[dst_mac]['id'])
-        with self.session_lock:
-            self.sessions[dst_mac] = {
-                'id': os.urandom(1)[0],
-                'ts': f"{time.time():.0f}",
-                'username': None,
-                'state': STATE_STEP_REQ_START
-            }
-        self._send_eap_request(EAP_IDENTITY, dst_mac)
-
-    def _process_eap_response(self, pkt):
+    def _handle_eap_response(self, pkt):
         """处理EAP响应"""
         client_mac = pkt.src
         eap = pkt[EAP]
         if self.radius_mode == MODE_RELAY:
-            self._relay_to_radius(client_mac, eap)
+            self._handle_relay_to_radius(client_mac, eap)
         elif self.handlers.get(eap.type):
             self.handlers[eap.type](client_mac, eap)
 
-    def _relay_to_radius(self, client_mac, eap):
-        """中继模式处理"""
-        print('[Server <-- Client(%s)][Relay]: Received EAP-Response/Identity' % eap.id)
-        resp = self.radius.send_relay_request(eap_data=eap.build())
-        self._handle_radius_response(client_mac, resp)
+    def _handle_eapol_start(self, pkt):
+        """处理EAPOL-Start"""
+        client_mac = pkt.src
+        print('[Server <-- Client(%s)]: Received EAPOL-Start' % client_mac)
+        # if client_mac in self.sessions.keys() and self.sessions[client_mac]['state'] >= STATE_STEP_REQ_START:
+            # print('[Server <-- Client(%s)][%s]: cache to clear.' % (client_mac, self.sessions[client_mac]['id']))
+        if client_mac in self.sessions.keys() and self.sessions[client_mac]['state'] == STATE_STEP_REQ_START:
+            return
+        with self.session_lock:
+            self.sessions[client_mac] = {
+                'id': 0,
+                'ts': time.time(),
+                'username': None,
+                'state': STATE_STEP_REQ_START
+            }
+        self._send_eap_request(EAP_IDENTITY, client_mac)
+        print('[Server --> Client(%s)][%s]: Sent EAP-Request/Identity' % (client_mac, self.sessions[client_mac]['id']))
 
-    def _handle_radius_response(self, client_mac, resp):
-        """处理RADIUS响应"""
+
+    def _handle_relay_to_radius(self, client_mac, eap):
+        """中继模式处理"""
+        print('[Server <-- Client(%s)][%s][Relay]: Received EAP-Response' % (client_mac, eap.id))
+        resp = self.radius.send_relay_request(eap_data=eap.build())
+        # 处理RADIUS响应
         if resp.code == ACCESS_ACCEPT:
             self._send_eap_result(EAP_SUCCESS, client_mac)
+            print('[Server --> Client(%s)][%s][Relay] Sent Success' % (client_mac, self.sessions[client_mac]['id']))
         elif resp.code == ACCESS_CHALLENGE:
             self._send_eap_request(EAP_MD5, client_mac, resp["EAP-Message"][0])
+            print('[Server --> Client(%s)][%s][Relay]: Sent EAP-Request/MD5-Challenge' % (client_mac,self.sessions[client_mac]['id']))
         else:
-            print('[Server <-- RadiusService] Response Access:', resp.code)
             self._send_eap_result(EAP_FAILURE, client_mac)
+            print('[Server --> Client(%s)][%s][Relay] Sent Failure:%s'% (client_mac, self.sessions[client_mac]['id'], resp.code))
 
     # 以下是终结模式处理方法
-    def _send_md5_challenge(self, client_mac, challenge):
-        """发送MD5挑战"""
-        challenge_pkt = bytes([16]) + challenge
-        self._send_eap_request(EAP_MD5, client_mac, challenge_pkt)
-
-    def _handle_identity_request(self, client_mac, eap):
+    def _handle_response_identity(self, client_mac, eap):
         """处理身份认证"""
-        print('[Server <-- Client(%s)]: Received EAP-Response/Identity' % eap.id)
-
         if self.sessions[client_mac]['state'] >= STATE_STEP_ACK_IDENTITY:
-            print('[Server <-- Client(%s)]: state:%s exists.' % (self.sessions[client_mac]['id'], self.sessions[client_mac].get('state')))
+            # print('[Server <-- Client(%s)][%s]: Received EAP-Response/Identity, state:%s exists, discard!' % (client_mac, eap.id, self.sessions[client_mac].get('state')))
             return
+        print('[Server <-- Client(%s)][%s]: Received EAP-Response/Identity' % (client_mac, eap.id))
         challenge = os.urandom(16)
+        username = self._get_user(str(eap.identity))
+        if not username:
+            self._send_eap_result(EAP_FAILURE, client_mac)
+            return
         with self.session_lock:
             self.sessions[client_mac]['challenge'] = challenge
-            self.sessions[client_mac]['username'] = str(eap.identity, encoding="utf-8")
+            self.sessions[client_mac]['username'] = username
             self.sessions[client_mac]['state'] = STATE_STEP_ACK_IDENTITY
-        self._send_md5_challenge(client_mac, challenge)
+        challenge_pkt = bytes([16]) + challenge
+        self._send_eap_request(EAP_MD5, client_mac, challenge_pkt)
+        print('[Server --> Client(%s)][%s]: Sent EAP-Request/MD5-Challenge' % (client_mac, self.sessions[client_mac]['id']))
 
-    def _handle_md5_challenge_request(self, client_mac, eap):
+
+    def _handle_response_md5_challenge(self, client_mac, eap):
         """验证MD5"""
-        print('[Server <-- Client(%s)]: Received EAP-Response/MD5-Challenge' % eap.id)
-
-        if self.sessions[client_mac]['state'] >= STATE_STEP_ACK_MD5_CHALLENGE:
-            print('[Server <-- Client(%s)]: state:%s exists.' % (self.sessions[client_mac]['id'], self.sessions[client_mac].get('state')))
+        challenge = self.sessions[client_mac]['challenge']
+        password = self.users[self.sessions[client_mac]['username']]
+        state = self.sessions[client_mac]['state']
+        if state >= STATE_STEP_ACK_MD5_CHALLENGE:
+            # print('[Server <-- Client(%s)][%s]: Received EAP-Response/MD5-Challenge, state:%s exists, discard!' % (client_mac, eap.id, state))
             return
+        print('[Server <-- Client(%s)][%s]: Received EAP-Response/MD5-Challenge' % (client_mac, eap.id))
         with self.session_lock:
-            session = self.sessions.get(client_mac)
             self.sessions[client_mac]['state'] = STATE_STEP_ACK_MD5_CHALLENGE
-        expected = hashlib.md5(bytes([eap.id]) + b"secret" + session['challenge']).digest()
+
+        expected = hashlib.md5(bytes([eap.id]) + password.encode() + challenge).digest()
+        if eap.value != expected:
+            print('[Server --> Client(%s)][%s]: MD5 CHECK FAILURE, expect:%s, actual:%s' % (client_mac, self.sessions[client_mac]['id'], expected, eap.value))
         self._send_eap_result(EAP_SUCCESS if eap.value == expected else EAP_FAILURE, client_mac)
+        print('[Server --> Client(%s)][%s]: Sent SUCCESS' % (client_mac, self.sessions[client_mac]['id']))
+
+
+    # TLS/PEAP处理占位符（实现略）
+    def _handle_response_tls(self, client_mac, eap):
+        print('[Server <-- Client(%s)][%s]: Received EAP-Response/TLS' % (client_mac, eap.id))
+        pass
+
+    def _handle_response_peap(self, client_mac, eap):
+        print('[Server <-- Client(%s)][%s]: Received EAP-Response/PEAP' % (client_mac, eap.id))
+        pass
 
     def _send_eap_request(self, eap_type, dst_mac, data=None):
         """发送EAP请求"""
-        eap_id = self.sessions[dst_mac]['id']
-        eap = EAP(code=EAP_REQUEST, id=eap_id, type=eap_type)
+        self.sessions[dst_mac]['id'] = self.sessions[dst_mac]['id'] + 1
+        eap = EAP(code=EAP_REQUEST, id=self.sessions[dst_mac]['id'], type=eap_type)
         if data:
             eap /= Raw(load=data)
         pkt = Ether(dst=dst_mac, src=self.mac) / EAPOL(version=EAPOL_VERSION) / eap
         sendp(pkt, iface=self.interface, verbose=0)
-        eap_type_str = 'Identity' if eap_type == EAP_IDENTITY else 'MD5-Challenge'
-        print('[Server --> Client[%d]]: Sent Eap-Request/%s' % (self.sessions[dst_mac]['id'], eap_type_str))
 
 
     def _send_eap_result(self, code, dst_mac):
-        eap_id = self.sessions[dst_mac]['id']
         """发送认证结果"""
-        pkt = Ether(dst=dst_mac, src=self.mac) / EAPOL(version=EAPOL_VERSION)
-        pkt /= EAP(code=code, id=os.urandom(1)[0])
+        self.sessions[dst_mac]['id'] += 1
+        eap = EAP(code=code, id=self.sessions[dst_mac]['id'])
+        pkt = Ether(dst=dst_mac, src=self.mac) / EAPOL(version=EAPOL_VERSION) / eap
         sendp(pkt, iface=self.interface, verbose=0)
-        print('[Server --> Client[%d]]: Sent result: %s' % (eap_id, 'SUCCESS' if code == EAP_SUCCESS else 'FAILURE'))
 
-    # TLS/PEAP处理占位符（实现略）
-    def _handle_tls_request(self, client_mac, eap):
-        print('[Server <-- Client(%s)]: Received EAP-Response/TLS' % eap.id)
-        pass
-
-    def _handle_peap_request(self, client_mac, eap):
-        print('[Server <-- Client(%s)]: Received EAP-Response/PEAP' % eap.id)
-        pass
+    def _get_user(self, identity):
+        for item in self.users.keys():
+            if item in identity:
+                return item
+        return None
 
 
 if __name__ == '__main__':
     config_relay = {
         'server': '127.0.0.1',
         'auth_port': 1812,
-        'username': 'operator',
-        'password': 'testpass',
         'secret': 'testing123',
+        'users': {
+            'operator':'testpass',
+            '0252000621':'ZTE123456'
+        },
         'mode': MODE_RELAY
     }
 
@@ -185,8 +201,10 @@ if __name__ == '__main__':
         'server': '127.0.0.1',
         'auth_port': 1812,
         'username': 'operator',
-        'password': 'testpass',
-        'secret': 'testing123',
+        'users': {
+            'operator':'testpass',
+            '0252000621':'ZTE123456'
+        },
         'mode': MODE_TERMINATE
     }
     authenticator = NasService("ens33", config_terminate)
